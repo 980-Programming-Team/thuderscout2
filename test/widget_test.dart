@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:thuderscout2/main.dart';
+import 'package:thunderscout2/main.dart';
+import 'package:thunderscout2/api/ApiService.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Main menu UI test', (WidgetTester tester) async {
+    // Create an ApiService instance and load the API key.
+    ApiService apiService = ApiService();
+    await apiService.loadApiKey();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Build the app with the ApiService passed in.
+    await tester.pumpWidget(MyApp(apiService: apiService));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Wait for the events to be fetched
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that the event dropdown is displayed and has data.
+    expect(find.byType(DropdownButton<String>), findsNWidgets(2)); // Two Dropdowns (Event and Qualification)
+    expect(find.text('Select Event:'), findsOneWidget); // Ensure 'Select Event' label is present.
+    expect(find.text('Select Qualification:'), findsOneWidget); // Ensure 'Select Qualification' label is present.
+
+    // Verify that the events dropdown has items.
+    expect(find.byType(DropdownMenuItem<String>), findsWidgets);
+    expect(find.text('Choose an event'), findsOneWidget);
+
+    // Simulate selecting an event
+    await tester.tap(find.text('Choose an event'));
+    await tester.pump(); // Rebuild after selection
+
+    // Verify that qualifications dropdown is now visible and contains items.
+    expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+    expect(find.text('Choose a qualification'), findsOneWidget);
+    expect(find.byType(DropdownMenuItem<String>), findsWidgets);
+
+    // Simulate selecting a qualification
+    await tester.tap(find.text('Choose a qualification'));
+    await tester.pump(); // Rebuild after qualification selection
+
+    // Check that the qualification dropdown still exists after selection
+    expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+    expect(find.text('Choose a qualification'), findsOneWidget);
   });
 }

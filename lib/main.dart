@@ -1,125 +1,130 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'api/ApiService.dart';
 
 void main() {
-  runApp(const MyApp());
+  // Create an ApiService instance
+  ApiService apiService = ApiService();
+
+  // Run the app and pass the ApiService instance to MyApp
+  runApp(MyApp(apiService: apiService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final ApiService apiService;
 
-  // This widget is the root of your application.
+  // Constructor now accepts 'apiService'
+  const MyApp({Key? key, required this.apiService}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Thunder Scout 2.0',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(apiService: apiService), // Pass apiService to MyHomePage
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  final ApiService apiService;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const MyHomePage({Key? key, required this.apiService}) : super(key: key);
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _MyHomePageState createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  String? selectedEvent;
+  String? selectedQualification;
+  List<Map<String, dynamic>> events = [];
+  List<Map<String, dynamic>> qualifications = [];
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    fetchEvents();
+  }
+
+  Future<void> fetchEvents() async {
+    final response = await http.get(Uri.parse('https://www.thebluealliance.com/api/v3/events/2024')); // Example event year
+    if (response.statusCode == 200) {
+      setState(() {
+        events = List<Map<String, dynamic>>.from(json.decode(response.body));
+      });
+    } else {
+      // Handle error
+      print('Failed to load events');
+    }
+  }
+
+  Future<void> fetchQualifications(String eventKey) async {
+    final response = await http.get(Uri.parse('https://www.thebluealliance.com/api/v3/event/$eventKey/matches'));
+    if (response.statusCode == 200) {
+      setState(() {
+        qualifications = List<Map<String, dynamic>>.from(json.decode(response.body));
+      });
+    } else {
+      // Handle error
+      print('Failed to load qualifications');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Thunder Scout 2.0'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Select Event:"),
+              DropdownButton<String>(
+                value: selectedEvent?.isNotEmpty == true ? selectedEvent : null, // Prevent selecting empty value
+                hint: const Text("Choose an event"),
+                items: events.map((event) {
+                  return DropdownMenuItem<String>(
+                    value: event['key']?.toString() ?? '', // Ensure a non-null string
+                    child: Text(event['name'] ?? 'No Name'), // Handle null name
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedEvent = value;
+                    qualifications = []; // Reset qualifications
+                  });
+                  if (value != null) fetchQualifications(value);
+                },
+              ),
+              const SizedBox(height: 20),
+              const Text("Select Qualification:"),
+              DropdownButton<String>(
+                value: selectedQualification?.isNotEmpty == true ? selectedQualification : null, // Prevent selecting empty value
+                hint: const Text("Choose a qualification"),
+                items: qualifications.map((qualification) {
+                  return DropdownMenuItem<String>(
+                    value: qualification['key']?.toString() ?? '',
+                    child: Text(qualification['name'] ?? 'No Name'),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedQualification = value;
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
